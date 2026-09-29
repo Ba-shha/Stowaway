@@ -216,3 +216,28 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Temporary and scratch files
+*.tmp
+*.bak
+scratch/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Full resolution telescope images (commit only the downscaled PNG in assets/)
+assets/raw/
+assets/*_full.png
+assets/*_original.*
+
+# Runtime output produced while using the app
+outputs/
+*_stego.png
+*_damaged.png
+
+# Demo recordings (share through a link instead of the repo)
+*.mp4
+*.mov
+*.mkv
