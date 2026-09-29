@@ -58,7 +58,7 @@ def hide(input,message=0,output="edited.png"):
     print(f"Sucess!! {out_path}")
 
 
-#For test use C:/Users/Sanjay S/Documents/test2.png or test.png
+#For test use test.png
 hide(input="test.png",message="YOU CANNOT SEE ME!!",output="edited1.png")
 
 ''' 
