@@ -1,0 +1,8 @@
+streamlit
+Pillow
+numpy
+cryptography
+reedsolo
+requests
+matplotlib
+pytest
