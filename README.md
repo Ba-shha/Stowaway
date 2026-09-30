@@ -2,10 +2,6 @@
 
 > Some messages are too important to be lost. Stowaway encrypts a message, hides it in a space telescope image, and recovers it after simulated space radiation damage using error correction.
 
-\<!-- TODO: add a screenshot or GIF of the app here, e.g. !\[Stowaway]\(assets/screenshot.png) -->
-
-`Lock -> Repair data -> Hide -> Survive -> Verify`
-
 ## The problem
 
 While sending information through space two problems are encountered. Signals travel through open space and can be intercepted, and energetic particles from the Sun flip bits in spacecraft electronics (_single event upsets_). This is where Stowaway, using techniques like Reed-Solomon, Steganography and Encryption to send information securely. It also **measures** how much simulated storm a hidden message can survive.
@@ -109,15 +105,6 @@ Cosmo Polo carries knowledge across worlds. Stowaway is the traveller's hidden c
 ## AI disclosure
 
 We used an AI assistant (Claude) for brainstorming, generating initial code, and explaining concepts. Our team chose the project direction, reviewed and tested all code, ran the experiments in `experiments/`, and wrote the results and limitations sections. Prompts and what we changed are logged in [`AI_USAGE.md`](https://claude.ai/chat/AI_USAGE.md).
-
-## Team
-
-| Person         | Owns                                      |
-| -------------- | ----------------------------------------- |
-| \<!-- name --> | \<!-- e.g. crypto.py, hide.py -->         |
-| \<!-- name --> | \<!-- e.g. storm.py, repair.py -->        |
-| \<!-- name --> | \<!-- e.g. experiments, tests -->         |
-| \<!-- name --> | \<!-- e.g. app.py, README, demo video --> |
 
 ## Credits
 
