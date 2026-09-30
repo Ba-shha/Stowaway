@@ -240,4 +240,5 @@ outputs/
 # Demo recordings (share through a link instead of the repo)
 *.mp4
 *.mov
-*.mkv
+*.mkvEdited_Images/
+damaged_image.png

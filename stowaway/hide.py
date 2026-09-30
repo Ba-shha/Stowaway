@@ -1,67 +1,49 @@
+"""Hide text inside an image and read it back (least significant bit, via stegano)."""
+
+import io
+
 from PIL import Image
-from pathlib import Path #man
-from stegano import lsb 
+from stegano import lsb
 from stegano.lsb import generators
 
-def analyze(input):
-    '''
-    A functions that lists the necessary attributes of the image file dealt.
-    This is called when an error pops up.
-    
-    Open orginal file.
-
-    type name : string
-    '''
-
-    path = Path(input)
-    img = Image.open(path)
-    print(f"""
-    The file format is {img.format}.
-    The file size is {round(path.stat().st_size/(1024**2) , 3)} MB
-    The dimensions are: {img.size}. 
-    Total number of pixels is {img.size[0]*img.size[1]}.
-    """)
-    img.show()
-
-def hide(input,message=0,output="edited.png"):
-    '''
-    A function that hides text in images.
-
-    The path of the image which is to be edited is assigned to var 'input'.
-    The actual mesage to be hidden assigned to var 'message'
-    The output image name is assigned to var 'output'
-
-    type input : str
-    type message : str or char
-    type output : str
-    '''
-
-    try:
-        in_path = Path(input)
-    except FileNotFoundError:
-        print("File Not Found")
-
-    folder = Path("Edited_Images")
-    folder.mkdir(exist_ok=True)
-    out_path = Path("Edited_Images/"+output)
-
-    try:
-        # Hide the message inside an existing image in such a way it cannot be easily found out.
-        secret_image = lsb.hide(in_path, message, generators.eratosthenes())
-    except ValueError:
-        print("Image is too small for text to be hiden.")
-    except IndexError:
-        print("Pixel index out of range")
-
-    # Saves the newly generated image containing the hidden text.
-    secret_image.save(out_path) 
-    print(f"Sucess!! {out_path}")
+COLON = 58  # the header is "<length>:<text>", and 58 is the code for ":"
 
 
-#For test use test.png
-hide(input="test.png",message="YOU CANNOT SEE ME!!",output="edited1.png")
+def _as_png(image: Image.Image) -> io.BytesIO:
+    buffer = io.BytesIO()
+    image.convert("RGB").save(buffer, format="PNG")
+    buffer.seek(0)
+    return buffer
 
-''' 
-To look up at orginal file to see what is wrong with it. Run:
-analyze("test.png")
-'''
+
+def hide(image: Image.Image, text: str) -> Image.Image:
+    """Return a copy of the image with the text hidden in it."""
+    return lsb.hide(_as_png(image), text, generators.eratosthenes()).convert("RGB")
+
+
+def reveal(image: Image.Image) -> str:
+    """Read the hidden text. Raises ValueError if the length header is damaged."""
+    img = image.convert("RGB")
+    pixels, width = img.load(), img.width
+    out, bits, count, total = bytearray(), 0, 0, None
+
+    for n in generators.eratosthenes():
+        if n >= width * img.height:
+            break
+        for channel in pixels[n % width, n // width]:
+            bits = (bits << 1) | (channel & 1)
+            count += 1
+            if count == 8:
+                out.append(bits)
+                bits = count = 0
+        if total is None and COLON in out:
+            head = bytes(out[:out.index(COLON)])
+            if not head.isdigit():
+                raise ValueError("Header damaged")
+            total = len(head) + 1 + int(head)
+        if total is not None and len(out) >= total:
+            break
+
+    if total is None:
+        raise ValueError("No header found")
+    return bytes(out[:total]).partition(b":")[2].decode("latin-1")
