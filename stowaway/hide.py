@@ -68,3 +68,4 @@ def hide(input,message=0,output="edited.png"):
 To look up at orginal file to see what is wrong with it. Run:
 analyze("test.png")
 '''
+
