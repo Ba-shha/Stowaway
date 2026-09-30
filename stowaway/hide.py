@@ -47,7 +47,7 @@ def hide(input,message=0,output="edited.png"):
 
     try:
         # Hide the message inside an existing image in such a way it cannot be easily found out.
-        secret_image = lsb.hide(in_path, message, generators.eratosthenes())
+        secret_image = lsb.hide(in_path, message,generators.eratosthenes())
     except ValueError:
         print("Image is too small for text to be hiden.")
     except IndexError:
@@ -59,7 +59,8 @@ def hide(input,message=0,output="edited.png"):
 
 
 #For test use test.png
-hide(input="test.png",message="YOU CANNOT SEE ME!!",output="edited1.png")
+#message = "jkQAfSC3_HR5o-RPo0obPmdBQUFBQUJxdkJneG5Yb0dlcXhSOGxmOWlCQ1dZbWtJUUhMR1Q0RUx6SmN1Z2lRMkpGZzc0WUtxSjNqUXBGWVMzY3RhcXdGS19wajE2eTBNWUQ1QWRqbnA0T3NSelI1WW5RPT3N_dG2YtbYk1IR8z-nDOS3FN8dCrWMpGfbxK1g0QzACg=="
+#hide(input="test.png",message=message,output="edited1.png")
 
 ''' 
 To look up at orginal file to see what is wrong with it. Run:

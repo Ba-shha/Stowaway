@@ -346,34 +346,35 @@ def _load_cache(
         return None
 
 
+def storm():
 # Get proton flux from NOAA
-reading = fetch_proton_flux()
+    reading = fetch_proton_flux()
 
 # Convert proton flux into simulated damage probability
-probability = flux_to_probability(reading.flux_pfu)
+    probability = flux_to_probability(reading.flux_pfu)
 
 # Ask the user for an image
-image_path = input("Enter the path of your image: ")
+    image_path = input("Enter the path of your image: ")
 
 # Open the image
-image = Image.open(image_path)
+    image = Image.open(image_path)
 
 # Simulate radiation damage
-damaged_image, flip_count = damage_image(
-    image,
-    probability,
-    rng_seed=42
-)
+    damaged_image, flip_count = damage_image(
+        image,
+        probability,
+        rng_seed=42
+    )
 
 # Save the damaged image
-damaged_image.save("damaged_image.png")
+    damaged_image.save("damaged_image.png")
 
 # Display information
-print()
-print("----- STOWAWAY SIMULATION -----")
-print("Proton flux:", reading.flux_pfu, "pfu")
-print("Observed at:", reading.observed_at)
-print("From cache:", reading.from_cache)
-print("Simulated probability:", probability)
-print("Values affected:", flip_count)
-print("Damaged image saved as: damaged_image.png")
+    print()
+    print("----- STOWAWAY SIMULATION -----")
+    print("Proton flux:", reading.flux_pfu, "pfu")
+    print("Observed at:", reading.observed_at)
+    print("From cache:", reading.from_cache)
+    print("Simulated probability:", probability)
+    print("Values affected:", flip_count)
+    print("Damaged image saved as: damaged_image.png")

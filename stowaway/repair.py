@@ -10,7 +10,7 @@ caused by space radiation and solar proton storms.
 import reedsolo
 
 
-def protect(data: bytes, nsym: int = 32) -> bytes:
+def protect(data: bytes, nsym: int = 100) -> bytes:
     """Appends Reed-Solomon parity bytes to raw data.
 
     Args:
@@ -38,7 +38,7 @@ def protect(data: bytes, nsym: int = 32) -> bytes:
     return bytes(rs.encode(data))
 
 
-def repair(encoded_data: bytes, nsym: int = 32) -> bytes:
+def repair(encoded_data: bytes, nsym: int = 100) -> bytes:
     """Detects and repairs corrupted byte data using Reed-Solomon ECC.
 
     Args:
