@@ -52,6 +52,8 @@ def hide(input,message=0,output="edited.png"):
         print("Image is too small for text to be hiden.")
     except IndexError:
         print("Pixel index out of range")
+    except FileNotFoundError:
+        print("File Not Found")
 
     # Saves the newly generated image containing the hidden text.
     secret_image.save(out_path) 
