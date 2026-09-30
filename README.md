@@ -34,8 +34,6 @@ Storm severity levels scale the bit-flip probability derived from the live NOAA 
 
 The experiment in `experiments/survival_curve.py` runs the real pipeline (lock, repair data, hide, storm, receive) on a 300x300 crop of the space image, with 100 trials per storm level and fixed seeds so reruns match. Raw numbers are in `results/survival_curve.csv`, and the chart is saved to `assets/survival_curve.png`.
 
-![Survival rate vs storm intensity](https://claude.ai/chat/assets/survival_curve.png)
-
 | Chance each bit flips | Recovered with repair data | Recovered without repair data |
 | --------------------- | -------------------------- | ----------------------------- |
 | 0%                    | 100%                       | 100%                          |
