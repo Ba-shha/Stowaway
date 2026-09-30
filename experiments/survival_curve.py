@@ -1,101 +1,89 @@
-# Generates the survival curve chart and CSV
-"""
-experiments/survival_curve.py
+"""Survival experiment: how much storm can a hidden message survive?
 
-Benchmarking script for Project Stowaway.
-Simulates radiation bit-flips across solar storm intensities to generate
-a survival curve comparing payload recovery rates WITH vs WITHOUT Reed-Solomon ECC.
-Outputs the benchmark chart to assets/survival_curve.png.
+Runs the REAL pipeline (lock -> repair data -> hide -> storm -> receive), so the chart
+matches what the app does. The Results tab in app.py calls run_levels() to draw it live.
+Run for the official chart:  python -m experiments.survival_curve
 """
 
-import os
-import random
-import matplotlib.pyplot as plt
-from stowaway.crypto import lock, unlock
-from stowaway.repair import protect, repair
+import csv
+from pathlib import Path
+
+from matplotlib.figure import Figure
+from PIL import Image
+
+from stowaway.pipeline import receive, send
+from stowaway.storm import damage_image
+
+ROOT = Path(__file__).resolve().parent.parent
+SPACE_IMAGE = ROOT / "assets" / "space.png"
+MESSAGE = "Stowaway Deep Space Telemetry Data Alpha-7"
+PASSWORD = "space-passphrase-2026"
+SIZE = 300  # we test on a 300x300 crop of the space image so 100 trials stay quick
+# Storm strength = chance that any one bit of the image flips.
+LEVELS = [0, 1e-3, 2e-3, 3e-3, 5e-3, 7e-3, 1e-2, 1.5e-2, 2e-2, 3e-2]
 
 
-def simulate_bit_flips(data: bytes, bit_flip_prob: float) -> bytes:
-    """Simulates space radiation damage by flipping bits with a given probability."""
-    data_arr = bytearray(data)
-    for i in range(len(data_arr)):
-        for bit in range(8):
-            if random.random() < bit_flip_prob:
-                data_arr[i] ^= (1 << bit)
-    return bytes(data_arr)
+def test_image() -> Image.Image:
+    """A small crop of the space image with the test message hidden in it."""
+    crop = Image.open(SPACE_IMAGE).convert("RGB").crop((0, 0, SIZE, SIZE))
+    return send(crop, MESSAGE, PASSWORD)
 
 
-def run_experiment(num_trials: int = 100):
-    # Ensure assets directory exists
-    os.makedirs("assets", exist_ok=True)
+def survival_point(stego, probability: float, trials: int, seed: int = 0):
+    """Storm the image `trials` times. Returns (% recovered with repair, % without repair)."""
+    with_repair = without_repair = 0
+    for t in range(trials):
+        damaged, _ = damage_image(stego, probability, seed=seed + t)  # fixed seeds, so reruns match
+        with_repair += receive(damaged, PASSWORD, True) == ("ok", MESSAGE)
+        without_repair += receive(damaged, PASSWORD, False) == ("ok", MESSAGE)
+    return 100 * with_repair / trials, 100 * without_repair / trials
 
-    message = "Stowaway Deep Space Telemetry Data Alpha-7"
-    password = "space-passphrase-2026"
-    nsym = 32
 
-    # Bit-flip probabilities ranging from 0.0% to 1.5%
-    probabilities = [i * 0.001 for i in range(16)]
+def run_levels(trials: int = 100, levels=LEVELS):
+    """Yield (probability, with_repair_pct, without_repair_pct), one storm level at a time."""
+    stego = test_image()
+    for i, p in enumerate(levels):
+        yield (p, *survival_point(stego, p, trials, seed=i * 100_000))
 
-    ecc_survival = []
-    raw_survival = []
 
-    print("--- Running Radiation Survival Curve Benchmark ---")
+def make_chart(probs, with_repair, without_repair, trials: int) -> Figure:
+    """Dark survival chart. Works for the saved PNG and for the live app."""
+    fig = Figure(figsize=(9, 5))
+    ax = fig.subplots()
+    fig.patch.set_facecolor("#0e1117")
+    ax.set_facecolor("#0e1117")
+    xs = [p * 100 for p in probs]
+    ax.plot(xs, with_repair, "o-", color="#00ffcc", lw=2.5, label="With repair data")
+    ax.plot(xs, without_repair, "x--", color="#ff5555", lw=2.5, label="Without repair data")
+    ax.set_xlabel("Storm intensity: chance each bit flips (%)", color="white")
+    ax.set_ylabel("Messages recovered (%)", color="white")
+    ax.set_title(f"Survival rate vs storm intensity ({trials} trials per level)", color="white")
+    ax.set_ylim(-5, 105)
+    ax.grid(True, linestyle=":", alpha=0.4)
+    ax.tick_params(colors="white")
+    ax.legend(facecolor="#1a1d24", labelcolor="white")
+    for side in ax.spines.values():
+        side.set_color("#555")
+    return fig
 
-    for p in probabilities:
-        ecc_successes = 0
-        raw_successes = 0
 
-        for _ in range(num_trials):
-            # 1. Encrypt raw payload
-            salt, token = lock(message, password)
+def run_experiment(trials: int = 100):
+    rows = []
+    print(f"--- Survival experiment: {trials} trials per level, real pipeline ---")
+    for p, with_r, without_r in run_levels(trials):
+        rows.append((p, with_r, without_r))
+        print(f"flip probability {p * 100:5.2f}% | with repair {with_r:5.1f}% | without {without_r:5.1f}%")
 
-            # --- Test WITH Reed-Solomon ECC ---
-            protected = protect(token, nsym=nsym)
-            corrupted_protected = simulate_bit_flips(protected, p)
-            try:
-                repaired_token = repair(corrupted_protected, nsym=nsym)
-                decrypted = unlock(repaired_token, password, salt)
-                if decrypted == message:
-                    ecc_successes += 1
-            except Exception:
-                pass
-
-            # --- Test WITHOUT ECC (Raw Token) ---
-            corrupted_raw = simulate_bit_flips(token, p)
-            try:
-                decrypted_raw = unlock(corrupted_raw, password, salt)
-                if decrypted_raw == message:
-                    raw_successes += 1
-            except Exception:
-                pass
-
-        ecc_rate = (ecc_successes / num_trials) * 100
-        raw_rate = (raw_successes / num_trials) * 100
-
-        ecc_survival.append(ecc_rate)
-        raw_survival.append(raw_rate)
-
-        print(f"Bit Flip Prob: {p*100:4.2f}% | ECC Survival: {ecc_rate:5.1f}% | Raw Survival: {raw_rate:5.1f}%")
-
-    # Generate graph
-    plt.style.use('dark_background')
-    plt.figure(figsize=(10, 6))
-
-    plt.plot([p * 100 for p in probabilities], ecc_survival, marker='o', linewidth=2.5, color='#00FFCC', label='With Reed-Solomon ECC (nsym=32)')
-    plt.plot([p * 100 for p in probabilities], raw_survival, marker='x', linewidth=2.5, color='#FF5555', linestyle='--', label='Without ECC (Raw Encryption)')
-
-    plt.title('Payload Survival Rate vs. Solar Storm Bit-Flip Probability', fontsize=14, pad=15)
-    plt.xlabel('Payload bit-flip probability (%)', fontsize=12)
-    plt.ylabel('Payload Recovery Success Rate (%)', fontsize=12)
-    plt.grid(True, linestyle=':', alpha=0.6)
-    plt.legend(fontsize=11)
-    plt.ylim(-5, 105)
-
-    output_path = os.path.join("assets", "survival_curve.png")
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    plt.close()
-
-    print(f"\n[SUCCESS] Benchmark complete! Chart saved to: {output_path}")
+    (ROOT / "assets").mkdir(exist_ok=True)
+    (ROOT / "results").mkdir(exist_ok=True)
+    with open(ROOT / "results" / "survival_curve.csv", "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["flip_probability", "with_repair_pct", "without_repair_pct", "trials"])
+        writer.writerows((*row, trials) for row in rows)
+    probs, with_r, without_r = zip(*rows)
+    make_chart(probs, with_r, without_r, trials).savefig(ROOT / "assets" / "survival_curve.png",
+                                                        dpi=200, facecolor="#0e1117")
+    print("Saved assets/survival_curve.png and results/survival_curve.csv")
 
 
 if __name__ == "__main__":

@@ -5,6 +5,7 @@ import numpy as np
 import streamlit as st
 from PIL import Image, UnidentifiedImageError
 
+from experiments.survival_curve import LEVELS, make_chart, run_levels
 from stowaway.pipeline import capacity, receive, send
 from stowaway.storm import damage_image, fetch_proton_flux, flux_to_probability
 
@@ -28,6 +29,28 @@ def difference_map(a, b):
     """Brightened difference between two images, so a change of 1 shade is visible."""
     diff = np.abs(np.array(a.convert("RGB"), np.int16) - np.array(b.convert("RGB"), np.int16))
     return Image.fromarray(np.clip(diff * 255, 0, 255).astype(np.uint8))
+
+
+def png_bytes(image):
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def pick_image(label, key, fallback, fallback_note):
+    """An uploaded PNG wins. Otherwise use the image from the previous tab, if there is one."""
+    uploaded = st.file_uploader(label, type=["png"], key=key)
+    if uploaded:
+        try:
+            return Image.open(uploaded).convert("RGB")
+        except (UnidentifiedImageError, OSError):
+            st.error("That file could not be read. Upload a PNG.")
+            return None
+    if fallback is not None:
+        st.caption(fallback_note)
+        return fallback
+    st.info("Upload a PNG above, or create one on the earlier tabs.")
+    return None
 
 
 def show_result(column, title, status, text):
@@ -72,15 +95,16 @@ def send_tab():
         right.image(state.stego, caption="With hidden message")
         st.image(difference_map(state.original, state.stego),
                  caption="Difference map (brightened). Black means nothing changed.")
-        buffer = io.BytesIO()
-        state.stego.save(buffer, format="PNG")
-        st.download_button("Download image (PNG)", buffer.getvalue(), "stowaway.png", "image/png")
+        st.download_button("Download image (PNG)", png_bytes(state.stego), "stowaway.png", "image/png")
+        st.caption("Send this file to anyone. They decode it on the Receive tab with the password. "
+                   "Keep it as a PNG: JPEG, resizing or WhatsApp destroy the hidden message.")
 
 
 def storm_tab():
     st.subheader("Simulate a radiation storm")
-    if state.stego is None:
-        st.info("Hide a message on the Send tab first.")
+    image = pick_image("Image to damage (upload the PNG from Send, or skip to use it directly)",
+                       "storm_upload", state.stego, "Using the image from the Send tab.")
+    if image is None:
         return
 
     reading = get_flux()
@@ -95,17 +119,20 @@ def storm_tab():
     st.caption("This is a model: real flux sets the intensity and we chose the mapping.")
 
     if st.button("Run storm", type="primary"):
-        state.damaged, state.flipped = damage_image(state.stego, probability, seed=42)
+        state.damaged, state.flipped = damage_image(image, probability, seed=42)
         state.probability = probability
 
     if state.damaged is not None:
         st.image(state.damaged, caption=f"After the storm: {state.flipped:,} bits flipped")
+        st.download_button("Download damaged image (PNG)", png_bytes(state.damaged),
+                           "stowaway_damaged.png", "image/png")
 
 
 def receive_tab():
     st.subheader("Recover and verify the message")
-    if state.damaged is None:
-        st.info("Run the storm on the Storm tab first.")
+    image = pick_image("Image to decode (upload a PNG, or skip to use the storm-damaged one)",
+                       "rx_upload", state.damaged, "Using the damaged image from the Storm tab.")
+    if image is None:
         return
 
     password = st.text_input("Password", type="password", key="rx_password")
@@ -116,17 +143,35 @@ def receive_tab():
             st.error("Enter the password.")
             return
         left, right = st.columns(2)
-        show_result(left, "With repair data", *receive(state.damaged, password, True, tamper))
-        show_result(right, "Without repair data", *receive(state.damaged, password, False))
-        st.caption(f"Bits flipped by the storm: {state.flipped:,}")
+        show_result(left, "With repair data", *receive(image, password, True, tamper))
+        show_result(right, "Without repair data", *receive(image, password, False))
+        if state.flipped is not None and image is state.damaged:
+            st.caption(f"Bits flipped by the storm: {state.flipped:,}")
 
 
 def results_tab():
     st.subheader("How much storm can the message survive?")
-    if CHART.exists():
-        st.image(str(CHART), caption="Survival rate vs storm intensity (experiments/survival_curve.py)")
-    else:
-        st.info("Run experiments/survival_curve.py to generate the chart.")
+    st.caption("Each storm level damages a small test image many times and counts how often the "
+               "message comes back. Same code path as the app: lock, repair data, hide, storm, decode.")
+    trials = st.slider("Trials per storm level", 5, 100, 20,
+                       help="More trials give a smoother curve but take longer.")
+
+    if st.button("Run live experiment", type="primary"):
+        probs, with_repair, without_repair = [], [], []
+        bar = st.progress(0.0, text="Starting...")
+        chart = st.empty()
+        for done, (p, a, b) in enumerate(run_levels(trials), start=1):
+            probs.append(p)
+            with_repair.append(a)
+            without_repair.append(b)
+            chart.pyplot(make_chart(probs, with_repair, without_repair, trials))
+            bar.progress(done / len(LEVELS), text=f"Storm level {done} of {len(LEVELS)} done")
+        bar.empty()
+        st.caption(f"Live run with {trials} trials per level. The official 100-trial chart comes "
+                   "from `python -m experiments.survival_curve`.")
+    elif CHART.exists():
+        st.image(str(CHART), caption="Saved result from experiments/survival_curve.py. "
+                                     "Press the button to draw it live.")
 
 
 st.title("Stowaway")
