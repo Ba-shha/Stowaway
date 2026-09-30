@@ -85,7 +85,7 @@ def run_experiment(num_trials: int = 100):
     plt.plot([p * 100 for p in probabilities], raw_survival, marker='x', linewidth=2.5, color='#FF5555', linestyle='--', label='Without ECC (Raw Encryption)')
 
     plt.title('Payload Survival Rate vs. Solar Storm Bit-Flip Probability', fontsize=14, pad=15)
-    plt.xlabel('Bit-Flip Error Probability (%)', fontsize=12)
+    plt.xlabel('Payload bit-flip probability (%)', fontsize=12)
     plt.ylabel('Payload Recovery Success Rate (%)', fontsize=12)
     plt.grid(True, linestyle=':', alpha=0.6)
     plt.legend(fontsize=11)
